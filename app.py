@@ -50,9 +50,18 @@ def calculate_next_fertilizing_date(purchase_date, fertilizing_frequency):
 
 class WateringNotificationResource(Resource):
     def post(self):
-        plants = request.json.get("plants", [])  # plants["plants"]にアクセス
+        data = request.json.get("plants", [])
+        start_date = request.args.get(
+            "start_date", datetime.utcnow().strftime("%Y-%m-%d")
+        )
+        end_date = request.args.get(
+            "end_date", (datetime.utcnow() + timedelta(days=365)).strftime("%Y-%m-%d")
+        )
+        start_date = datetime.strptime(start_date, "%Y-%m-%d")
+        end_date = datetime.strptime(end_date, "%Y-%m-%d")
+
         upcoming_watering_plants = []
-        for plant in plants:
+        for plant in data:
             watering_interval = {
                 "daily": 1,
                 "every 3 days": 3,
@@ -61,35 +70,37 @@ class WateringNotificationResource(Resource):
                 "monthly": 30,
             }.get(plant["watering_frequency"], 7)
 
-            purchase_date = datetime.strptime(plant["purchase_date"], "%Y-%m-%d")
-            days_since_purchase = (datetime.utcnow().date() - purchase_date.date()).days
-            if days_since_purchase < 0:
-                continue
-            days_to_next_watering = watering_interval - (
-                days_since_purchase % watering_interval
-            )
-            next_watering_date = datetime.utcnow().date() + timedelta(
-                days=days_to_next_watering
-            )
-
-            if next_watering_date <= datetime.utcnow().date() + timedelta(
-                days=7
-            ):  # 次の7日以内に水やりが必要な植物をフィルタ
-                upcoming_watering_plants.append(
-                    {
-                        "name": plant["name"],
-                        "next_watering_date": next_watering_date.strftime("%Y-%m-%d"),
-                    }
-                )
+            last_watering_date = datetime.strptime(plant["purchase_date"], "%Y-%m-%d")
+            next_watering_date = last_watering_date + timedelta(days=watering_interval)
+            while next_watering_date <= end_date:
+                if next_watering_date >= start_date:
+                    upcoming_watering_plants.append(
+                        {
+                            "name": plant["name"],
+                            "next_watering_date": next_watering_date.strftime(
+                                "%Y-%m-%d"
+                            ),
+                        }
+                    )
+                next_watering_date += timedelta(days=watering_interval)
 
         return {"upcoming_watering_plants": upcoming_watering_plants}, 200
 
 
 class FertilizingNotificationResource(Resource):
     def post(self):
-        plants = request.json.get("plants", [])  # plants["plants"]にアクセス
+        data = request.json.get("plants", [])
+        start_date = request.args.get(
+            "start_date", datetime.utcnow().strftime("%Y-%m-%d")
+        )
+        end_date = request.args.get(
+            "end_date", (datetime.utcnow() + timedelta(days=365)).strftime("%Y-%m-%d")
+        )
+        start_date = datetime.strptime(start_date, "%Y-%m-%d")
+        end_date = datetime.strptime(end_date, "%Y-%m-%d")
+
         upcoming_fertilizing_plants = []
-        for plant in plants:
+        for plant in data:
             fertilizing_interval = {
                 "daily": 1,
                 "every 3 days": 3,
@@ -98,28 +109,23 @@ class FertilizingNotificationResource(Resource):
                 "monthly": 30,
             }.get(plant["fertilizing_frequency"], 30)
 
-            purchase_date = datetime.strptime(plant["purchase_date"], "%Y-%m-%d")
-            days_since_purchase = (datetime.utcnow().date() - purchase_date.date()).days
-            if days_since_purchase < 0:
-                continue
-            days_to_next_fertilizing = fertilizing_interval - (
-                days_since_purchase % fertilizing_interval
+            last_fertilizing_date = datetime.strptime(
+                plant["purchase_date"], "%Y-%m-%d"
             )
-            next_fertilizing_date = datetime.utcnow().date() + timedelta(
-                days=days_to_next_fertilizing
+            next_fertilizing_date = last_fertilizing_date + timedelta(
+                days=fertilizing_interval
             )
-
-            if next_fertilizing_date <= datetime.utcnow().date() + timedelta(
-                days=7
-            ):  # 次の7日以内に施肥が必要な植物をフィルタ
-                upcoming_fertilizing_plants.append(
-                    {
-                        "name": plant["name"],
-                        "next_fertilizing_date": next_fertilizing_date.strftime(
-                            "%Y-%m-%d"
-                        ),
-                    }
-                )
+            while next_fertilizing_date <= end_date:
+                if next_fertilizing_date >= start_date:
+                    upcoming_fertilizing_plants.append(
+                        {
+                            "name": plant["name"],
+                            "next_fertilizing_date": next_fertilizing_date.strftime(
+                                "%Y-%m-%d"
+                            ),
+                        }
+                    )
+                next_fertilizing_date += timedelta(days=fertilizing_interval)
 
         return {"upcoming_fertilizing_plants": upcoming_fertilizing_plants}, 200
 
